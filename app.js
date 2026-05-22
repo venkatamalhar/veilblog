@@ -76,16 +76,10 @@ const elements = {
 };
 
 const formFields = [
-  "sourceLink",
-  "buyerPersona",
   "authorMode",
-  "publishDate",
-  "dueDate",
   "postTitle",
-  "introduction",
-  "facts",
-  "whatHappened",
-  "viewpoint"
+  "postContext",
+  "postConclusion"
 ];
 
 function loadState() {
@@ -226,29 +220,31 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#039;");
 }
 
-function safeLink(value = "") {
-  try {
-    const url = new URL(value);
-    return ["http:", "https:"].includes(url.protocol) ? url.href : "";
-  } catch {
-    return "";
-  }
-}
-
 function renderPostCard(post) {
   const card = elements.postTemplate.content.firstElementChild.cloneNode(true);
+  const postDate = post.submittedAt || "";
+
   card.querySelector(".post-meta").textContent =
-    `${bylineFor(post)} · Publishes ${post.publishDate} · ${post.buyerPersona}`;
+    `${bylineFor(post)}${postDate ? ` · ${formatDateTime(postDate)}` : ""}`;
+
   card.querySelector("h3").textContent = post.title;
-  card.querySelector(".post-intro").textContent = post.introduction;
-  const sourceUrl = safeLink(post.sourceLink);
-  card.querySelector(".outline-render").innerHTML = `
-    <p><strong>Original story:</strong> ${sourceUrl ? `<a href="${sourceUrl}" target="_blank" rel="noreferrer">${escapeHtml(sourceUrl)}</a>` : "Not provided"}</p>
-    <p><strong>Due date:</strong> ${escapeHtml(post.dueDate)}</p>
-    <p><strong>Short facts:</strong> ${escapeHtml(post.facts)}</p>
-    <p><strong>What happened:</strong> ${escapeHtml(post.whatHappened)}</p>
-    <p><strong>Viewpoint:</strong> ${escapeHtml(post.viewpoint || "No viewpoint added.")}</p>
+
+  card.querySelector(".post-intro").innerHTML = `
+    <strong>Context</strong><br><br>
+    ${escapeHtml(post.context || "")}
+    <br><br>
+    <strong>Conclusion</strong><br><br>
+    ${escapeHtml(post.conclusion || "")}
   `;
+
+  card.querySelector(".post-details").innerHTML = `
+    <p><strong>Author choice:</strong>
+    ${post.authorMode === "anonymous" ? "Anonymous" : "Named"}</p>
+
+    <p><strong>Submitted by account:</strong>
+    ${escapeHtml(post.authorEmail || "Unknown")}</p>
+  `;
+
   return card;
 }
 
@@ -262,7 +258,7 @@ function renderFeed() {
   }
 
   posts
-    .sort((a, b) => b.publishDate.localeCompare(a.publishDate))
+    .sort((a, b) => (b.submittedAt || b.publishDate || "").localeCompare(a.submittedAt || a.publishDate || ""))
     .forEach((post) => elements.postFeed.append(renderPostCard(post)));
 }
 
@@ -286,7 +282,6 @@ function renderPendingPosts() {
         </div>
         <span class="status-pill">Pending</span>
       </div>
-      <p class="tiny">${escapeHtml(post.introduction)}</p>
       <div class="item-actions">
         <button class="primary-btn" data-action="approve" data-id="${post.id}">Approve</button>
         <button class="danger-btn" data-action="reject" data-id="${post.id}">Reject</button>
@@ -309,10 +304,10 @@ function renderPeople() {
       return right.localeCompare(left);
     })
     .forEach((user) => {
-    const item = document.createElement("div");
-    const current = user.email === state.currentUserEmail;
-    item.className = "list-item";
-    item.innerHTML = `
+      const item = document.createElement("div");
+      const current = user.email === state.currentUserEmail;
+      item.className = "list-item";
+      item.innerHTML = `
       <div class="item-row">
         <div>
           <strong>${escapeHtml(user.name)}</strong>
@@ -331,8 +326,8 @@ function renderPeople() {
         </button>
       </div>
     `;
-    elements.peopleList.append(item);
-  });
+      elements.peopleList.append(item);
+    });
 }
 
 function renderAdmin() {
@@ -365,21 +360,17 @@ function render() {
 
 function collectPost(status) {
   const user = currentUser();
+
   return {
     id: crypto.randomUUID(),
     status,
     title: document.querySelector("#postTitle").value.trim(),
-    sourceLink: document.querySelector("#sourceLink").value.trim(),
-    buyerPersona: document.querySelector("#buyerPersona").value.trim(),
+    context: document.querySelector("#postContext").value.trim(),
+    conclusion: document.querySelector("#postConclusion").value.trim(),
     authorMode: document.querySelector("#authorMode").value,
     authorName: user.name,
     authorEmail: user.email,
-    dueDate: document.querySelector("#dueDate").value,
-    publishDate: document.querySelector("#publishDate").value,
-    introduction: document.querySelector("#introduction").value.trim(),
-    facts: document.querySelector("#facts").value.trim(),
-    whatHappened: document.querySelector("#whatHappened").value.trim(),
-    viewpoint: document.querySelector("#viewpoint").value.trim()
+    submittedAt: new Date().toISOString()
   };
 }
 
