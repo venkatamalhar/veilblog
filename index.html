@@ -98,3 +98,111 @@
                   Link to original story
                   <input id="sourceLink" type="url" placeholder="https://example.com/source" />
                 </label>
+                <label>
+                  Buyer persona
+                  <input id="buyerPersona" type="text" placeholder="Target reader or group" required />
+                </label>
+              </div>
+
+              <div class="field-row">
+                <label>
+                  Author display
+                  <select id="authorMode">
+                    <option value="anonymous">Post anonymously</option>
+                    <option value="named">Show my Google name</option>
+                  </select>
+                </label>
+                <label>
+                  Desired publish date
+                  <input id="publishDate" type="date" required />
+                </label>
+              </div>
+
+              <div class="field-row">
+                <label>
+                  Due date
+                  <input id="dueDate" type="date" required />
+                </label>
+                <label>
+                  Blog post title
+                  <input id="postTitle" type="text" maxlength="60" placeholder="Blog Post Title" required />
+                </label>
+              </div>
+
+              <label>
+                Introduction
+                <textarea id="introduction" rows="6" placeholder="100-200 words. Lead into the post with short facts, why it matters, and what this post explains." required></textarea>
+              </label>
+
+              <label>
+                Short facts
+                <textarea id="facts" rows="5" placeholder="Known facts, source details, affected people or industry, and relevant context." required></textarea>
+              </label>
+
+              <label>
+                What happened
+                <textarea id="whatHappened" rows="6" placeholder="Fill in the history, information, sources, and factual sequence." required></textarea>
+              </label>
+
+              <label>
+                Viewpoint
+                <textarea id="viewpoint" rows="5" placeholder="Optional viewpoint or analysis. Keep it respectful and evidence-backed."></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button type="button" id="saveDraftBtn" class="ghost-btn">Save draft</button>
+                <button type="submit" class="primary-btn">Submit for review</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <section id="adminPanel" class="view-panel hidden">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Multi-admin control</p>
+              <h2>Review queue and people</h2>
+            </div>
+            <span id="adminCount" class="status-pill"></span>
+          </div>
+          <div class="admin-grid">
+            <div class="admin-card glass3d">
+              <h3>Pending posts</h3>
+              <div id="pendingPosts" class="stack-list"></div>
+            </div>
+            <div class="admin-card glass3d">
+              <h3>People</h3>
+              <form id="inviteForm" class="invite-form">
+                <input id="inviteEmail" type="email" placeholder="person@hyderabad.bits-pilani.ac.in" required />
+                <select id="inviteRole">
+                  <option value="writer">Writer</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <button class="primary-btn" type="submit">Add</button>
+              </form>
+              <div id="peopleList" class="stack-list"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <template id="postTemplate">
+      <article class="post-card glass3d">
+        <div class="post-meta"></div>
+        <h3></h3>
+        <p class="post-intro"></p>
+        <details>
+          <summary>Read outline</summary>
+          <div class="outline-render"></div>
+        </details>
+      </article>
+    </template>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
