@@ -1,208 +1,170 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VeilBlog</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <main class="app-shell">
-      <section id="loginView" class="login-view">
-        <div class="brand-lockup">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VeilBlog</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <main class="app-shell">
+    <section id="loginView" class="login-view">
+      <div class="brand-lockup">
+        <span class="brand-mark">VB</span>
+        <div>
+          <p class="eyebrow">Google account access only</p>
+          <h1>VeilBlog</h1>
+        </div>
+      </div>
+
+      <div class="login-panel glass3d">
+        <div class="panel-grid">
+          <div>
+            <p class="kicker">Private anonymous publishing</p>
+            <h2>Write with a name, a mask, or both under admin review.</h2>
+            <p class="muted">
+              Every visitor must sign in with Google. Writers choose whether each post shows their Google profile
+              name or an anonymous byline. Admins can approve posts, manage people, and promote other admins.
+            </p>
+          </div>
+          <div class="sign-in-box">
+            <button id="googleLoginBtn" class="primary-btn" type="button">Continue with Google</button>
+            <p id="loginError" class="login-error hidden" role="alert"></p>
+            <p class="tiny">
+              Only <code>@hyderabad.bits-pilani.ac.in</code> Google accounts can open the blog posting area.
+              Logins are saved to Firebase so admins can see who joined.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboardView" class="dashboard hidden">
+      <header class="topbar glass3d">
+        <div class="brand-lockup compact">
           <span class="brand-mark">VB</span>
           <div>
-            <p class="eyebrow">Google account access only</p>
+            <p class="eyebrow">Members-only blog</p>
             <h1>VeilBlog</h1>
           </div>
         </div>
+        <nav class="tabs" aria-label="Main views">
+          <button class="tab active" data-view="feedPanel">Feed</button>
+          <button class="tab" data-view="editorPanel">Write</button>
+          <button class="tab admin-only" data-view="adminPanel">Admin</button>
+        </nav>
+        <div class="account-chip">
+          <span id="userName">Signed in</span>
+          <button id="signOutBtn" class="ghost-btn">Sign out</button>
+        </div>
+      </header>
 
-        <div class="login-panel glass3d">
-          <div class="panel-grid">
-            <div>
-              <p class="kicker">Private anonymous publishing</p>
-              <h2>Write with a name, a mask, or both under admin review.</h2>
-              <p class="muted">
-                Every visitor must sign in with Google. Writers choose whether each post shows their Google profile
-                name or an anonymous byline. Admins can approve posts, manage people, and promote other admins.
-              </p>
+      <section id="feedPanel" class="view-panel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Published board</p>
+            <h2>Latest posts</h2>
+          </div>
+          <button class="primary-btn" data-view-shortcut="editorPanel">New post</button>
+        </div>
+        <div id="postFeed" class="post-feed"></div>
+      </section>
+
+      <section id="editorPanel" class="view-panel hidden">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Quick post</p>
+            <h2>Create blog post</h2>
+          </div>
+          <span id="saveStatus" class="status-pill">Draft not saved</span>
+        </div>
+
+        <form id="postForm" class="editor-layout simple-editor">
+          <div class="form-card glass3d">
+            <label>
+              Title
+              <input id="postTitle" type="text" maxlength="120" placeholder="Enter your title" required />
+            </label>
+
+            <label>
+              Author display
+              <select id="authorMode">
+                <option value="anonymous">Post anonymously</option>
+                <option value="named">Show my Google name</option>
+              </select>
+            </label>
+
+            <label>
+              Context
+              <textarea id="postContext" rows="10" placeholder="Write the context here" required></textarea>
+            </label>
+
+            <label>
+              Conclusion
+              <textarea id="postConclusion" rows="6" placeholder="Write the conclusion here" required></textarea>
+            </label>
+
+            <div class="form-actions">
+              <button type="button" id="saveDraftBtn" class="ghost-btn">
+                Save draft
+              </button>
+              <button type="submit" class="primary-btn">
+                Submit for review
+              </button>
             </div>
-            <div class="sign-in-box">
-              <button id="googleLoginBtn" class="primary-btn" type="button">Continue with Google</button>
-              <p id="loginError" class="login-error hidden" role="alert"></p>
-              <p class="tiny">
-                Only <code>@hyderabad.bits-pilani.ac.in</code> Google accounts can open the blog posting area.
-                Logins are saved to Firebase so admins can see who joined.
-              </p>
-            </div>
+          </div>
+        </form>
+      </section>
+
+      <section id="adminPanel" class="view-panel hidden">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Multi-admin control</p>
+            <h2>Review queue and people</h2>
+          </div>
+          <span id="adminCount" class="status-pill"></span>
+        </div>
+        <div class="admin-grid">
+          <div class="admin-card glass3d">
+            <h3>Pending posts</h3>
+            <div id="pendingPosts" class="stack-list"></div>
+          </div>
+          <div class="admin-card glass3d">
+            <h3>People</h3>
+            <form id="inviteForm" class="invite-form">
+              <input id="inviteEmail" type="email" placeholder="person@hyderabad.bits-pilani.ac.in" required />
+              <select id="inviteRole">
+                <option value="writer">Writer</option>
+                <option value="admin">Admin</option>
+              </select>
+              <button class="primary-btn" type="submit">Add</button>
+            </form>
+            <div id="peopleList" class="stack-list"></div>
           </div>
         </div>
       </section>
+    </section>
+  </main>
 
-      <section id="dashboardView" class="dashboard hidden">
-        <header class="topbar glass3d">
-          <div class="brand-lockup compact">
-            <span class="brand-mark">VB</span>
-            <div>
-              <p class="eyebrow">Members-only blog</p>
-              <h1>VeilBlog</h1>
-            </div>
-          </div>
-          <nav class="tabs" aria-label="Main views">
-            <button class="tab active" data-view="feedPanel">Feed</button>
-            <button class="tab" data-view="editorPanel">Write</button>
-            <button class="tab admin-only" data-view="adminPanel">Admin</button>
-          </nav>
-          <div class="account-chip">
-            <span id="userName">Signed in</span>
-            <button id="signOutBtn" class="ghost-btn">Sign out</button>
-          </div>
-        </header>
+  <template id="postTemplate">
+    <article class="post-card glass3d">
+      <div class="post-meta"></div>
+      <h3></h3>
+      <p class="post-intro"></p>
+      <details>
+        <summary>Post details</summary>
+        <div class="post-details"></div>
+      </details>
+    </article>
+  </template>
 
-        <section id="feedPanel" class="view-panel">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Published board</p>
-              <h2>Latest posts</h2>
-            </div>
-            <button class="primary-btn" data-view-shortcut="editorPanel">New post</button>
-          </div>
-          <div id="postFeed" class="post-feed"></div>
-        </section>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js"></script>
+  <script src="app.js"></script>
+</body>
 
-        <section id="editorPanel" class="view-panel hidden">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Outline format</p>
-              <h2>Create blog post</h2>
-            </div>
-            <span id="saveStatus" class="status-pill">Draft not saved</span>
-          </div>
-
-          <form id="postForm" class="editor-layout">
-            <aside class="outline-card glass3d">
-              <h3>Required outline</h3>
-              <ol>
-                <li>Original story link</li>
-                <li>Author and due date</li>
-                <li>Publish date and persona</li>
-                <li>Short title under 60 characters</li>
-                <li>Introduction, facts, and why it matters</li>
-                <li>What happened and your viewpoint</li>
-              </ol>
-            </aside>
-
-            <div class="form-card glass3d">
-              <div class="field-row">
-                <label>
-                  Link to original story
-                  <input id="sourceLink" type="url" placeholder="https://example.com/source" />
-                </label>
-                <label>
-                  Buyer persona
-                  <input id="buyerPersona" type="text" placeholder="Target reader or group" required />
-                </label>
-              </div>
-
-              <div class="field-row">
-                <label>
-                  Author display
-                  <select id="authorMode">
-                    <option value="anonymous">Post anonymously</option>
-                    <option value="named">Show my Google name</option>
-                  </select>
-                </label>
-                <label>
-                  Desired publish date
-                  <input id="publishDate" type="date" required />
-                </label>
-              </div>
-
-              <div class="field-row">
-                <label>
-                  Due date
-                  <input id="dueDate" type="date" required />
-                </label>
-                <label>
-                  Blog post title
-                  <input id="postTitle" type="text" maxlength="60" placeholder="Blog Post Title" required />
-                </label>
-              </div>
-
-              <label>
-                Introduction
-                <textarea id="introduction" rows="6" placeholder="100-200 words. Lead into the post with short facts, why it matters, and what this post explains." required></textarea>
-              </label>
-
-              <label>
-                Short facts
-                <textarea id="facts" rows="5" placeholder="Known facts, source details, affected people or industry, and relevant context." required></textarea>
-              </label>
-
-              <label>
-                What happened
-                <textarea id="whatHappened" rows="6" placeholder="Fill in the history, information, sources, and factual sequence." required></textarea>
-              </label>
-
-              <label>
-                Viewpoint
-                <textarea id="viewpoint" rows="5" placeholder="Optional viewpoint or analysis. Keep it respectful and evidence-backed."></textarea>
-              </label>
-
-              <div class="form-actions">
-                <button type="button" id="saveDraftBtn" class="ghost-btn">Save draft</button>
-                <button type="submit" class="primary-btn">Submit for review</button>
-              </div>
-            </div>
-          </form>
-        </section>
-
-        <section id="adminPanel" class="view-panel hidden">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Multi-admin control</p>
-              <h2>Review queue and people</h2>
-            </div>
-            <span id="adminCount" class="status-pill"></span>
-          </div>
-          <div class="admin-grid">
-            <div class="admin-card glass3d">
-              <h3>Pending posts</h3>
-              <div id="pendingPosts" class="stack-list"></div>
-            </div>
-            <div class="admin-card glass3d">
-              <h3>People</h3>
-              <form id="inviteForm" class="invite-form">
-                <input id="inviteEmail" type="email" placeholder="person@hyderabad.bits-pilani.ac.in" required />
-                <select id="inviteRole">
-                  <option value="writer">Writer</option>
-                  <option value="admin">Admin</option>
-                </select>
-                <button class="primary-btn" type="submit">Add</button>
-              </form>
-              <div id="peopleList" class="stack-list"></div>
-            </div>
-          </div>
-        </section>
-      </section>
-    </main>
-
-    <template id="postTemplate">
-      <article class="post-card glass3d">
-        <div class="post-meta"></div>
-        <h3></h3>
-        <p class="post-intro"></p>
-        <details>
-          <summary>Read outline</summary>
-          <div class="outline-render"></div>
-        </details>
-      </article>
-    </template>
-
-    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js"></script>
-    <script src="app.js"></script>
-  </body>
 </html>
