@@ -81,6 +81,11 @@ function loadState() {
 
 function normalizeState(nextState) {
   nextState.users = nextState.users.filter((user) => isAllowedEmail(user.email));
+  nextState.users.forEach((user) => {
+    user.firstLoginAt ||= null;
+    user.lastLoginAt ||= null;
+    user.loginCount ||= 0;
+  });
   if (nextState.currentUserEmail && !isAllowedEmail(nextState.currentUserEmail)) {
     nextState.currentUserEmail = null;
   }
@@ -109,8 +114,18 @@ function showLoginError(message) {
   elements.loginError.classList.toggle("hidden", !message);
 }
 
+function formatDateTime(value) {
+  if (!value) return "Not logged in yet";
+
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
 function signIn(profile) {
   const email = profile.email.toLowerCase();
+  const now = new Date().toISOString();
   showLoginError("");
 
   if (!isAllowedEmail(email)) {
@@ -128,7 +143,10 @@ function signIn(profile) {
       email,
       name: profile.name || email.split("@")[0],
       role: state.users.some((entry) => entry.role === "admin") ? "writer" : "admin",
-      status: "active"
+      status: "active",
+      firstLoginAt: now,
+      lastLoginAt: now,
+      loginCount: 0
     };
     state.users.push(user);
   }
@@ -138,6 +156,10 @@ function signIn(profile) {
     return;
   }
 
+  user.name = profile.name || user.name;
+  user.firstLoginAt ||= now;
+  user.lastLoginAt = now;
+  user.loginCount = (user.loginCount || 0) + 1;
   state.currentUserEmail = email;
   saveState();
   render();
@@ -274,7 +296,14 @@ function renderPeople() {
   elements.adminCount.textContent = `${adminTotal} active admin${adminTotal === 1 ? "" : "s"}`;
   elements.peopleList.replaceChildren();
 
-  state.users.forEach((user) => {
+  state.users
+    .slice()
+    .sort((a, b) => {
+      const left = a.lastLoginAt || a.firstLoginAt || "";
+      const right = b.lastLoginAt || b.firstLoginAt || "";
+      return right.localeCompare(left);
+    })
+    .forEach((user) => {
     const item = document.createElement("div");
     const current = user.email === state.currentUserEmail;
     item.className = "list-item";
@@ -283,6 +312,8 @@ function renderPeople() {
         <div>
           <strong>${escapeHtml(user.name)}</strong>
           <p class="tiny">${escapeHtml(user.email)}</p>
+          <p class="tiny">First login: ${escapeHtml(formatDateTime(user.firstLoginAt))}</p>
+          <p class="tiny">Last login: ${escapeHtml(formatDateTime(user.lastLoginAt))} · ${user.loginCount || 0} login${user.loginCount === 1 ? "" : "s"}</p>
         </div>
         <span class="status-pill">${user.role} · ${user.status}${current ? " · you" : ""}</span>
       </div>
@@ -426,7 +457,10 @@ function addPerson(event) {
       email,
       name: email.split("@")[0],
       role: elements.inviteRole.value,
-      status: "active"
+      status: "active",
+      firstLoginAt: null,
+      lastLoginAt: null,
+      loginCount: 0
     });
   }
 
