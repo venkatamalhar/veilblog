@@ -1,6 +1,27 @@
-const GOOGLE_CLIENT_ID = "401882616161-be2j38cgf72qinmuaaqrfckl0e4tfngk.apps.googleusercontent.com";
+const firebaseConfig = {
+  apiKey: "AIzaSyCTVcBM78hWzdJRgni-nT9gxDti2z9IyL8",
+  authDomain: "veilblog.firebaseapp.com",
+  projectId: "veilblog",
+  storageBucket: "veilblog.firebasestorage.app",
+  messagingSenderId: "831837729167",
+  appId: "1:831837729167:web:3a8efc090276525db39bfa",
+  measurementId: "G-4XEDKBN68C"
+};
+
 const ALLOWED_EMAIL_DOMAIN = "@hyderabad.bits-pilani.ac.in";
-const STORAGE_KEY = "veilblog-state-v1";
+const STORAGE_KEY = "veilblog-posts-v1";
+
+const firebaseApp = firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+googleProvider.setCustomParameters({ hd: "hyderabad.bits-pilani.ac.in" });
+
+try {
+  firebase.analytics();
+} catch {
+  // Analytics can be unavailable in some browser/privacy contexts.
+}
 
 const defaultState = {
   currentUserEmail: null,
@@ -34,7 +55,6 @@ let state = normalizeState(loadState());
 const elements = {
   loginView: document.querySelector("#loginView"),
   dashboardView: document.querySelector("#dashboardView"),
-  googleButton: document.querySelector("#googleButton"),
   googleLoginBtn: document.querySelector("#googleLoginBtn"),
   loginError: document.querySelector("#loginError"),
   userName: document.querySelector("#userName"),
@@ -73,27 +93,20 @@ function loadState() {
   if (!saved) return structuredClone(defaultState);
 
   try {
-    return { ...structuredClone(defaultState), ...JSON.parse(saved) };
+    return { ...structuredClone(defaultState), posts: JSON.parse(saved) };
   } catch {
     return structuredClone(defaultState);
   }
 }
 
 function normalizeState(nextState) {
-  nextState.users = nextState.users.filter((user) => isAllowedEmail(user.email));
-  nextState.users.forEach((user) => {
-    user.firstLoginAt ||= null;
-    user.lastLoginAt ||= null;
-    user.loginCount ||= 0;
-  });
-  if (nextState.currentUserEmail && !isAllowedEmail(nextState.currentUserEmail)) {
-    nextState.currentUserEmail = null;
-  }
+  nextState.users = [];
+  nextState.currentUserEmail = null;
   return nextState;
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.posts));
 }
 
 function currentUser() {
@@ -123,79 +136,71 @@ function formatDateTime(value) {
   }).format(new Date(value));
 }
 
-function signIn(profile) {
-  const email = profile.email.toLowerCase();
+async function fetchUsers() {
+  const snapshot = await db.collection("users").orderBy("lastLoginAt", "desc").get();
+  state.users = snapshot.docs.map((doc) => doc.data()).filter((user) => isAllowedEmail(user.email));
+}
+
+async function hasAnyAdmin() {
+  const snapshot = await db.collection("users").where("role", "==", "admin").limit(1).get();
+  return !snapshot.empty;
+}
+
+async function signInFirebaseUser(firebaseUser) {
+  const email = firebaseUser.email.toLowerCase();
   const now = new Date().toISOString();
   showLoginError("");
 
   if (!isAllowedEmail(email)) {
     state.currentUserEmail = null;
-    saveState();
+    await auth.signOut();
     render();
     showLoginError(`Access is restricted to Google accounts ending in ${ALLOWED_EMAIL_DOMAIN}.`);
     return;
   }
 
-  let user = state.users.find((entry) => entry.email === email);
+  const userRef = db.collection("users").doc(email);
+  const userDoc = await userRef.get();
+  const existingUser = userDoc.exists ? userDoc.data() : null;
 
-  if (!user) {
-    user = {
-      email,
-      name: profile.name || email.split("@")[0],
-      role: state.users.some((entry) => entry.role === "admin") ? "writer" : "admin",
-      status: "active",
-      firstLoginAt: now,
-      lastLoginAt: now,
-      loginCount: 0
-    };
-    state.users.push(user);
-  }
-
-  if (user.status !== "active") {
+  if (existingUser?.status === "blocked") {
+    await auth.signOut();
     showLoginError("This Google account has been blocked by an admin.");
     return;
   }
 
-  user.name = profile.name || user.name;
-  user.firstLoginAt ||= now;
-  user.lastLoginAt = now;
-  user.loginCount = (user.loginCount || 0) + 1;
+  const user = {
+    email,
+    name: firebaseUser.displayName || existingUser?.name || email.split("@")[0],
+    role: existingUser?.role || ((await hasAnyAdmin()) ? "writer" : "admin"),
+    status: existingUser?.status || "active",
+    firstLoginAt: existingUser?.firstLoginAt || now,
+    lastLoginAt: now,
+    loginCount: (existingUser?.loginCount || 0) + 1
+  };
+
+  await userRef.set(user, { merge: true });
+  await fetchUsers();
   state.currentUserEmail = email;
   saveState();
   render();
 }
 
-function signOut() {
+async function signOut() {
+  await auth.signOut();
   state.currentUserEmail = null;
-  saveState();
   showLoginError("");
   render();
 }
 
-function parseJwt(token) {
-  const payload = token.split(".")[1];
-  return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-}
-
-function setupGoogleSignIn() {
-  if (!window.google || GOOGLE_CLIENT_ID.includes("PASTE_YOUR")) return;
-
-  elements.googleLoginBtn.classList.add("hidden");
-
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: (response) => {
-      const profile = parseJwt(response.credential);
-      signIn({ email: profile.email, name: profile.name });
-    }
-  });
-
-  google.accounts.id.renderButton(elements.googleButton, {
-    theme: "filled_black",
-    size: "large",
-    shape: "rectangular",
-    text: "continue_with"
-  });
+async function startGoogleSignIn() {
+  try {
+    showLoginError("");
+    await auth.signInWithPopup(googleProvider);
+  } catch (error) {
+    if (error.code === "auth/popup-closed-by-user") return;
+    showLoginError(error.message || "Google sign-in failed.");
+  }
 }
 
 function switchView(viewId) {
@@ -418,7 +423,7 @@ function handlePendingAction(event) {
   render();
 }
 
-function handlePeopleAction(event) {
+async function handlePeopleAction(event) {
   const button = event.target.closest("[data-user-action]");
   if (!button) return;
 
@@ -431,11 +436,19 @@ function handlePeopleAction(event) {
     user.status = user.status === "active" ? "blocked" : "active";
   }
 
+  await db.collection("users").doc(user.email).set(
+    {
+      role: user.role,
+      status: user.status
+    },
+    { merge: true }
+  );
+  await fetchUsers();
   saveState();
   render();
 }
 
-function addPerson(event) {
+async function addPerson(event) {
   event.preventDefault();
   const email = elements.inviteEmail.value.trim().toLowerCase();
   if (!email) return;
@@ -464,15 +477,16 @@ function addPerson(event) {
     });
   }
 
+  const user = state.users.find((entry) => entry.email === email);
+  await db.collection("users").doc(email).set(user, { merge: true });
+  await fetchUsers();
   elements.inviteForm.reset();
   saveState();
   render();
 }
 
 elements.signOutBtn.addEventListener("click", signOut);
-elements.googleLoginBtn.addEventListener("click", () => {
-  showLoginError("Add your Google/Firebase sign-in handler here, then call handleGoogleLoginSuccess(user).");
-});
+elements.googleLoginBtn.addEventListener("click", startGoogleSignIn);
 elements.postForm.addEventListener("submit", submitPost);
 elements.saveDraftBtn.addEventListener("click", saveDraft);
 elements.pendingPosts.addEventListener("click", handlePendingAction);
@@ -493,6 +507,20 @@ formFields.forEach((id) => {
   });
 });
 
-window.addEventListener("load", setupGoogleSignIn);
-window.handleGoogleLoginSuccess = signIn;
+auth.onAuthStateChanged(async (firebaseUser) => {
+  try {
+    if (firebaseUser) {
+      await signInFirebaseUser(firebaseUser);
+      return;
+    }
+
+    state.currentUserEmail = null;
+    await fetchUsers();
+    render();
+  } catch (error) {
+    showLoginError(error.message || "Could not load Firebase login data.");
+    render();
+  }
+});
+
 render();
