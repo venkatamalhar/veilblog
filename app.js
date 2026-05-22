@@ -1,5 +1,5 @@
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey: "AIzaSyCTVcBM78hWzdJRgni-nT9gxDti2z9IyL8",
   authDomain: "veilblog.firebaseapp.com",
   projectId: "veilblog",
   storageBucket: "veilblog.firebasestorage.app",
