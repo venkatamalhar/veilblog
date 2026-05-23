@@ -30,6 +30,7 @@ let state = normalizeState(loadState());
 
 const elements = {
   loginView: document.querySelector("#loginView"),
+  peopleList: document.querySelector("#peopleList"),
   dashboardView: document.querySelector("#dashboardView"),
   googleLoginBtn: document.querySelector("#googleLoginBtn"),
   loginError: document.querySelector("#loginError"),
@@ -48,7 +49,7 @@ const elements = {
   inviteForm: document.querySelector("#inviteForm"),
   inviteEmail: document.querySelector("#inviteEmail"),
   inviteRole: document.querySelector("#inviteRole"),
-  adminCount: document.querySelector("#adminCount")
+  adminCount: document.querySelector("#adminCount"),
 };
 
 const formFields = [
@@ -333,6 +334,47 @@ function renderFeed() {
     );
   });
 }
+function renderPeople() {
+  if (!elements.peopleList) return;
+
+  elements.peopleList.replaceChildren();
+
+  state.users.forEach((user) => {
+    const item = document.createElement("div");
+
+    item.className = "list-item";
+
+    item.innerHTML = `
+      <div class="item-row">
+        <div>
+          <strong>${escapeHtml(user.name)}</strong>
+
+          <p class="tiny">
+            ${escapeHtml(user.email)}
+          </p>
+
+          <p class="tiny">
+            Last login:
+            ${formatDateTime(user.lastLoginAt)}
+          </p>
+
+          <p class="tiny">
+            Login count:
+            ${user.loginCount || 0}
+          </p>
+        </div>
+
+        <span class="status-pill">
+          admin
+        </span>
+      </div>
+    `;
+
+    elements.peopleList.append(item);
+  });
+}
+
+
 
 function render() {
   const user = currentUser();
