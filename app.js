@@ -175,16 +175,13 @@ async function signInFirebaseUser(firebaseUser) {
 
   const user = {
     email,
+
     name:
       firebaseUser.displayName ||
       existingUser?.name ||
       email.split("@")[0],
 
-    role:
-      existingUser?.role ||
-      ((await hasAnyAdmin())
-        ? "writer"
-        : "admin"),
+    role: "admin",
 
     status: existingUser?.status || "active",
 
@@ -266,10 +263,9 @@ function renderPostCard(post) {
   const postDate = post.submittedAt || "";
 
   card.querySelector(".post-meta").textContent =
-    `${bylineFor(post)}${
-      postDate
-        ? ` · ${formatDateTime(postDate)}`
-        : ""
+    `${bylineFor(post)}${postDate
+      ? ` · ${formatDateTime(postDate)}`
+      : ""
     }`;
 
   card.querySelector("h3").textContent =
@@ -290,11 +286,10 @@ function renderPostCard(post) {
   card.querySelector(".post-details").innerHTML = `
     <p>
       <strong>Author choice:</strong>
-      ${
-        post.authorMode === "anonymous"
-          ? "Anonymous"
-          : "Named"
-      }
+      ${post.authorMode === "anonymous"
+      ? "Anonymous"
+      : "Named"
+    }
     </p>
 
     <p>
@@ -302,9 +297,8 @@ function renderPostCard(post) {
       ${escapeHtml(post.authorEmail || "Unknown")}
     </p>
 
-    ${
-      isAdmin()
-        ? `
+    ${isAdmin()
+      ? `
         <button
           class="danger-btn delete-post-btn"
           data-delete-id="${post.id}"
@@ -312,7 +306,7 @@ function renderPostCard(post) {
           Delete post
         </button>
       `
-        : ""
+      : ""
     }
   `;
 
