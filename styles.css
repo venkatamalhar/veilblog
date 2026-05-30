@@ -367,7 +367,7 @@ summary {
   font-weight: 800;
 }
 
-.outline-render {
+.post-details {
   display: grid;
   gap: 10px;
   margin-top: 14px;
@@ -380,6 +380,10 @@ summary {
   grid-template-columns: 280px 1fr;
   gap: 18px;
   align-items: start;
+}
+
+.simple-editor {
+  grid-template-columns: minmax(0, 640px);
 }
 
 .outline-card {
