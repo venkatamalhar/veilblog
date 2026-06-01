@@ -1,0 +1,45 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isBitsUser() {
+      return signedIn()
+        && request.auth.token.email.matches('.*@hyderabad\\.bits-pilani\\.ac\\.in$');
+    }
+
+    function isAdmin() {
+      return isBitsUser()
+        && exists(/databases/$(database)/documents/users/$(request.auth.token.email))
+        && get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role == 'admin'
+        && get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.status == 'active';
+    }
+
+    match /users/{email} {
+      allow read: if isBitsUser();
+      allow create: if isBitsUser() && request.auth.token.email == email;
+      allow update: if isBitsUser() && request.auth.token.email == email;
+      allow update, delete: if isAdmin();
+    }
+
+    match /posts/{postId} {
+      allow read: if isBitsUser();
+
+      allow create: if isBitsUser()
+        && request.resource.data.authorEmail == request.auth.token.email
+        && request.resource.data.status in ['pending', 'draft'];
+
+      allow update: if isAdmin()
+        || (
+          isBitsUser()
+          && resource.data.authorEmail == request.auth.token.email
+          && resource.data.status in ['draft', 'pending']
+        );
+
+      allow delete: if isAdmin();
+    }
+  }
+}

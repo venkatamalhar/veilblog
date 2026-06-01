@@ -494,27 +494,33 @@ async function handlePostAction(event) {
   const post = state.posts.find((entry) => entry.id === button.dataset.id);
   if (!post) return;
 
-  if (button.dataset.action === "edit") {
-    editPost(post);
-    return;
-  }
+  try {
+    if (button.dataset.action === "edit") {
+      editPost(post);
+      return;
+    }
 
-  if (button.dataset.action === "delete") {
-    const confirmed = confirm(`Delete "${post.title}"?`);
-    if (!confirmed) return;
-    await db.collection("posts").doc(post.id).delete();
-    state.posts = state.posts.filter((entry) => entry.id !== post.id);
+    if (button.dataset.action === "delete") {
+      const confirmed = confirm(`Remove "${post.title}"?`);
+      if (!confirmed) return;
+      await db.collection("posts").doc(post.id).delete();
+      state.posts = state.posts.filter((entry) => entry.id !== post.id);
+      await fetchPosts();
+      saveState();
+      render();
+      return;
+    }
+
+    post.status = button.dataset.action === "approve" ? "published" : "rejected";
+    post.reviewedAt = new Date().toISOString();
+    post.reviewedBy = currentUser()?.email || "";
+    await savePost(post);
+    await fetchPosts();
     saveState();
     render();
-    return;
+  } catch (error) {
+    showLoginError(error.message || "Post action failed. Check Firestore rules.");
   }
-
-  post.status = button.dataset.action === "approve" ? "published" : "rejected";
-  post.reviewedAt = new Date().toISOString();
-  post.reviewedBy = currentUser()?.email || "";
-  await savePost(post);
-  saveState();
-  render();
 }
 
 async function handlePeopleAction(event) {
