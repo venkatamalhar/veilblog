@@ -68,6 +68,7 @@ const elements = {
   saveDraftBtn: document.querySelector("#saveDraftBtn"),
   saveStatus: document.querySelector("#saveStatus"),
   pendingPosts: document.querySelector("#pendingPosts"),
+  allPosts: document.querySelector("#allPosts"),
   peopleList: document.querySelector("#peopleList"),
   inviteForm: document.querySelector("#inviteForm"),
   inviteEmail: document.querySelector("#inviteEmail"),
@@ -81,6 +82,8 @@ const formFields = [
   "postContext",
   "postConclusion"
 ];
+
+let editingPostId = null;
 
 function loadState() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -135,6 +138,12 @@ async function fetchUsers() {
   state.users = snapshot.docs.map((doc) => doc.data()).filter((user) => isAllowedEmail(user.email));
 }
 
+async function fetchPosts() {
+  const snapshot = await db.collection("posts").orderBy("submittedAt", "desc").get();
+  state.posts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  saveState();
+}
+
 async function hasAnyAdmin() {
   const snapshot = await db.collection("users").where("role", "==", "admin").limit(1).get();
   return !snapshot.empty;
@@ -175,6 +184,7 @@ async function signInFirebaseUser(firebaseUser) {
 
   await userRef.set(user, { merge: true });
   await fetchUsers();
+  await fetchPosts();
   state.currentUserEmail = email;
   saveState();
   render();
@@ -245,6 +255,17 @@ function renderPostCard(post) {
     ${escapeHtml(post.authorEmail || "Unknown")}</p>
   `;
 
+  if (isAdmin()) {
+    const removeActions = document.createElement("div");
+    removeActions.className = "post-actions";
+    removeActions.innerHTML = `
+      <button class="danger-btn" data-action="delete" data-id="${post.id}">
+        Remove post
+      </button>
+    `;
+    card.append(removeActions);
+  }
+
   return card;
 }
 
@@ -285,10 +306,46 @@ function renderPendingPosts() {
       <div class="item-actions">
         <button class="primary-btn" data-action="approve" data-id="${post.id}">Approve</button>
         <button class="danger-btn" data-action="reject" data-id="${post.id}">Reject</button>
+        <button class="ghost-btn" data-action="edit" data-id="${post.id}">Edit</button>
+        <button class="danger-btn" data-action="delete" data-id="${post.id}">Remove post</button>
       </div>
     `;
     elements.pendingPosts.append(item);
   });
+}
+
+function renderAllPosts() {
+  elements.allPosts.replaceChildren();
+
+  if (!state.posts.length) {
+    elements.allPosts.innerHTML = `<div class="empty-state">No posts have been submitted yet.</div>`;
+    return;
+  }
+
+  state.posts
+    .slice()
+    .sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""))
+    .forEach((post) => {
+      const item = document.createElement("div");
+      item.className = "list-item";
+      item.innerHTML = `
+        <div class="item-row">
+          <div>
+            <strong>${escapeHtml(post.title)}</strong>
+            <p class="tiny">${escapeHtml(post.authorName)} · ${escapeHtml(post.authorEmail)}</p>
+            <p class="tiny">Submitted: ${escapeHtml(formatDateTime(post.submittedAt))}</p>
+          </div>
+          <span class="status-pill">${escapeHtml(post.status)}</span>
+        </div>
+        <div class="item-actions">
+          ${post.status !== "published" ? `<button class="primary-btn" data-action="approve" data-id="${post.id}">Approve</button>` : ""}
+          ${post.status !== "rejected" ? `<button class="danger-btn" data-action="reject" data-id="${post.id}">Reject</button>` : ""}
+          <button class="ghost-btn" data-action="edit" data-id="${post.id}">Edit</button>
+          <button class="danger-btn" data-action="delete" data-id="${post.id}">Remove post</button>
+        </div>
+      `;
+      elements.allPosts.append(item);
+    });
 }
 
 function renderPeople() {
@@ -333,6 +390,7 @@ function renderPeople() {
 function renderAdmin() {
   if (!isAdmin()) return;
   renderPendingPosts();
+  renderAllPosts();
   renderPeople();
 }
 
@@ -360,56 +418,101 @@ function render() {
 
 function collectPost(status) {
   const user = currentUser();
+  const existingPost = editingPostId ? state.posts.find((post) => post.id === editingPostId) : null;
 
   return {
-    id: crypto.randomUUID(),
-    status,
+    id: editingPostId || crypto.randomUUID(),
+    status: existingPost?.status || status,
     title: document.querySelector("#postTitle").value.trim(),
     context: document.querySelector("#postContext").value.trim(),
     conclusion: document.querySelector("#postConclusion").value.trim(),
     authorMode: document.querySelector("#authorMode").value,
-    authorName: user.name,
-    authorEmail: user.email,
-    submittedAt: new Date().toISOString()
+    authorName: existingPost?.authorName || user.name,
+    authorEmail: existingPost?.authorEmail || user.email,
+    submittedAt: existingPost?.submittedAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    updatedBy: user.email
   };
 }
 
 function resetForm() {
   elements.postForm.reset();
+  editingPostId = null;
   elements.saveStatus.textContent = "Draft not saved";
 }
 
-function saveDraft() {
-  const post = collectPost("draft");
+async function savePost(post) {
+  await db.collection("posts").doc(post.id).set(post, { merge: true });
+  const index = state.posts.findIndex((entry) => entry.id === post.id);
+
+  if (index >= 0) {
+    state.posts[index] = post;
+  } else {
+    state.posts.unshift(post);
+  }
+
+  saveState();
+}
+
+async function saveDraft() {
+  const existingPost = editingPostId ? state.posts.find((post) => post.id === editingPostId) : null;
+  const post = collectPost(existingPost?.status || "draft");
   if (!post.title) {
     elements.saveStatus.textContent = "Add a title before saving";
     return;
   }
-  state.posts.push(post);
-  saveState();
+  await savePost(post);
   elements.saveStatus.textContent = "Draft saved";
   render();
 }
 
-function submitPost(event) {
+async function submitPost(event) {
   event.preventDefault();
-  const post = collectPost(isAdmin() ? "published" : "pending");
-  state.posts.push(post);
-  saveState();
+  const existingPost = editingPostId ? state.posts.find((post) => post.id === editingPostId) : null;
+  const post = collectPost(existingPost?.status || "pending");
+  await savePost(post);
   resetForm();
   render();
-  switchView(isAdmin() ? "feedPanel" : "editorPanel");
-  elements.saveStatus.textContent = isAdmin() ? "Published" : "Submitted for admin review";
+  switchView("editorPanel");
+  elements.saveStatus.textContent = "Submitted for admin review";
 }
 
-function handlePendingAction(event) {
+function editPost(post) {
+  editingPostId = post.id;
+  document.querySelector("#postTitle").value = post.title || "";
+  document.querySelector("#postContext").value = post.context || "";
+  document.querySelector("#postConclusion").value = post.conclusion || "";
+  document.querySelector("#authorMode").value = post.authorMode || "anonymous";
+  elements.saveStatus.textContent = `Editing ${post.status} post`;
+  switchView("editorPanel");
+}
+
+async function handlePostAction(event) {
   const button = event.target.closest("[data-action]");
   if (!button) return;
 
   const post = state.posts.find((entry) => entry.id === button.dataset.id);
   if (!post) return;
 
+  if (button.dataset.action === "edit") {
+    editPost(post);
+    return;
+  }
+
+  if (button.dataset.action === "delete") {
+    const confirmed = confirm(`Delete "${post.title}"?`);
+    if (!confirmed) return;
+    await db.collection("posts").doc(post.id).delete();
+    state.posts = state.posts.filter((entry) => entry.id !== post.id);
+    saveState();
+    render();
+    return;
+  }
+
   post.status = button.dataset.action === "approve" ? "published" : "rejected";
+  post.reviewedAt = new Date().toISOString();
+  post.reviewedBy = currentUser()?.email || "";
+  await savePost(post);
   saveState();
   render();
 }
@@ -480,7 +583,9 @@ elements.signOutBtn.addEventListener("click", signOut);
 elements.googleLoginBtn.addEventListener("click", startGoogleSignIn);
 elements.postForm.addEventListener("submit", submitPost);
 elements.saveDraftBtn.addEventListener("click", saveDraft);
-elements.pendingPosts.addEventListener("click", handlePendingAction);
+elements.postFeed.addEventListener("click", handlePostAction);
+elements.pendingPosts.addEventListener("click", handlePostAction);
+elements.allPosts.addEventListener("click", handlePostAction);
 elements.peopleList.addEventListener("click", handlePeopleAction);
 elements.inviteForm.addEventListener("submit", addPerson);
 

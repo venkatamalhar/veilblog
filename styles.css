@@ -356,6 +356,13 @@ textarea {
   line-height: 1.55;
 }
 
+.post-actions {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
 details {
   border-top: 1px solid var(--line);
   padding-top: 10px;

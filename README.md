@@ -1,6 +1,6 @@
 # VeilBlog
 
-Anonymous members-only blog prototype with Google-account-only entry, per-post anonymity, outline-based writing, and multi-admin controls.
+Anonymous members-only blog prototype with Google-account-only entry, per-post anonymity, admin review, editable posts, deletable posts, and multi-admin controls.
 
 ## Run locally
 
@@ -38,4 +38,6 @@ Any account outside `@hyderabad.bits-pilani.ac.in` is rejected before the blog p
 
 ## Data
 
-Users and admin roles are stored in Firestore. Posts are still stored locally in the browser in this prototype.
+Users, admin roles, drafts, pending posts, rejected posts, and published posts are stored in Firestore.
+
+Posts submitted by writers go to the admin review queue first. Admins can approve, reject, edit, or delete posts from the Admin panel.
